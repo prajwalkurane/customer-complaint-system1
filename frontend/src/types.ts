@@ -1,0 +1,2 @@
+export type Complaint={id:number;reference:string;title:string;description:string;customer_name:string;customer_email:string;category:string;status:string;priority:string;risk_level:string;ai_summary?:string;root_cause?:string;capa_recommendation?:string;duplicate_of_id?:number;created_at:string;updated_at:string;attachments:{id:number;filename:string;content_type:string;ocr_text?:string}[]};
+export type Metrics={total:number;open:number;in_progress:number;resolved:number;critical:number;recent:Complaint[]};

@@ -1,0 +1,4 @@
+import {createAsyncThunk,createSlice} from '@reduxjs/toolkit'; import api from '../../api'; import type {Complaint,Metrics} from '../../types';
+export const fetchComplaints=createAsyncThunk('complaints/list',async()=> (await api.get<Complaint[]>('/complaints')).data);
+export const fetchMetrics=createAsyncThunk('complaints/metrics',async()=> (await api.get<Metrics>('/complaints/dashboard/metrics')).data);
+const slice=createSlice({name:'complaints',initialState:{items:[] as Complaint[],metrics:null as Metrics|null,loading:false,error:''},reducers:{},extraReducers:b=>b.addCase(fetchComplaints.pending,s=>{s.loading=true;s.error=''}).addCase(fetchComplaints.fulfilled,(s,a)=>{s.items=a.payload;s.loading=false}).addCase(fetchComplaints.rejected,(s,a)=>{s.loading=false;s.error=a.error.message||'Could not load complaints'}).addCase(fetchMetrics.fulfilled,(s,a)=>{s.metrics=a.payload})}); export default slice.reducer;
