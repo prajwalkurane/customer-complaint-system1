@@ -1,4 +1,13 @@
+
 import uuid, shutil
+from sqlalchemy.orm import Session
+def find_duplicates(db: Session, description: str):
+    # Simple duplicate detection - can be improved with embeddings
+    if not description:
+        return None
+    # Just a placeholder - returns first complaint with similar description (if any)
+    existing = db.query(Complaint).filter(Complaint.description.ilike(f"%{description[:50]}%")).first()
+    return existing.id if existing else None
 from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File
 from sqlalchemy import or_
@@ -77,3 +86,60 @@ def reanalyze(complaint_id:int,db:Session=Depends(get_db),_:User=Depends(current
 def timeline(complaint_id:int,db:Session=Depends(get_db),_:User=Depends(current_user)):
     if not db.get(Complaint,complaint_id): raise HTTPException(404,"Complaint not found")
     return db.query(AuditLog).filter_by(complaint_id=complaint_id).order_by(AuditLog.created_at.desc()).all()
+# ------------------- नवीन endpoint: /extract -------------------
+from fastapi import UploadFile, File, Form
+from typing import Optional
+from app.services.ocr import extract_text
+from app.services.langgraph_workflow import extract_complaint_data as langgraph_extract
+# from app.services.duplicate import find_duplicates
+
+@router.post("/extract", response_model=dict)
+async def extract_complaint_from_document(
+    file: Optional[UploadFile] = File(None),
+    text: Optional[str] = Form(None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(current_user)
+):
+    """
+    Accepts a file (PDF, image, DOCX, TXT, EML) or plain text,
+    runs OCR if needed, and uses LangGraph to extract structured complaint fields.
+    """
+    if not file and not text:
+        raise HTTPException(status_code=400, detail="Either file or text must be provided")
+    
+    content = ""
+    if file:
+        # OCR extraction from file
+        content = await extract_text(file)
+    elif text:
+        content = text
+    
+    if not content:
+        raise HTTPException(status_code=400, detail="No text could be extracted from the input")
+    
+    # LangGraph extraction
+    result = langgraph_extract(content)
+    
+    # Check for duplicates
+    duplicate_list = []
+    duplicate_id = find_duplicates(db, result.get("description", ""))
+    if duplicate_id:
+        dup = db.query(Complaint).filter(Complaint.id == duplicate_id).first()
+        if dup:
+            duplicate_list.append({
+                "id": dup.id,
+                "reference": dup.reference,
+                "similarity": 0.85  # example, you can compute actual similarity
+            })
+    
+    # Calculate completeness
+    required_fields = ["customer_name", "product_name", "batch_number", "description"]
+    missing = [f for f in required_fields if not result.get(f)]
+    completeness = max(0, 100 - (len(missing) / len(required_fields) * 100))
+    
+    return {
+        "extracted": result,
+        "completeness_score": round(completeness),
+        "missing_fields": missing,
+        "duplicates": duplicate_list
+    }
