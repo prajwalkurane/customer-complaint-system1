@@ -3,8 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { TextField, Button, Paper, Typography, Box, Alert } from '@mui/material';
 import { registerUser } from '../store/authSlice';
-import { RootState } from '../store';
-import { AppDispatch } from '../store';
+import { RootState, AppDispatch } from '../store';
 
 const Register = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -18,9 +17,11 @@ const Register = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const result = await dispatch(registerUser(formData));
-    if (result.meta.requestStatus === 'fulfilled') {
+    try {
+      await dispatch(registerUser(formData)).unwrap();
       navigate('/');
+    } catch (err) {
+      // error handled by redux
     }
   };
 

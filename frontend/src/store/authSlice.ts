@@ -17,9 +17,8 @@ export const registerUser = createAsyncThunk(
   }
 );
 
-// ✅ IMPORTANT: This interface MUST have `token`
 interface AuthState {
-  token: string | null;   // <-- required
+  token: string | null;
   user: any | null;
   loading: boolean;
   error: string | null;
